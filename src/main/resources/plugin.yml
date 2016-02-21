@@ -1,0 +1,3 @@
+name: KillEvents
+version: 0.1.0
+main: com.defiancecraft.modules.killevents.KillEvents
