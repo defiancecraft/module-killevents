@@ -12,6 +12,10 @@ public class ScoreboardConfig {
 	public String objTokens = "Tokens";
 
 	// How often the scoreboard should update in ticks
-	public long frequencyTicks;
+	public long frequencyTicks = 6000;
+	
+	// Whether scoreboard enforcement is passive (i.e.
+	// won't be enforced if objective already exists in slot)
+	public boolean passive = false;
 	
 }

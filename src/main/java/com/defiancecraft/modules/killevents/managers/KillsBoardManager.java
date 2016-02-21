@@ -57,8 +57,17 @@ public class KillsBoardManager  {
 		if (oldBoard != null && oldBoard.getObjective(OBJECTIVE_NAME) != null)
 			return;
 		
-		// Create scoreboard & objective for player
-		Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
+		// Create scoreboard if player does not have one
+		Scoreboard board = oldBoard != null ? oldBoard : Bukkit.getScoreboardManager().getNewScoreboard();
+		
+		// If an objective exists in sidebar, return if we are in passive
+		// mode, and clear if we are in aggressive mode.
+		if (board.getObjective(DisplaySlot.SIDEBAR) != null)
+			if (plugin.getConfiguration().scoreboard.passive)
+				return;
+			else
+				board.clearSlot(DisplaySlot.SIDEBAR);
+		
 		Objective objective = board.registerNewObjective(OBJECTIVE_NAME, DUMMY_CRITERIA);
 		objective.setDisplayName(ChatColor.translateAlternateColorCodes('&', plugin.getConfiguration().scoreboard.title));
 		objective.setDisplaySlot(DisplaySlot.SIDEBAR);
