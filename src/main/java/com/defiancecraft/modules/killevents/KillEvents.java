@@ -163,7 +163,7 @@ public class KillEvents extends JavaModule {
     	RegisteredServiceProvider<Economy> economyProvider = getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
     	if (economyProvider != null)
     		this.economy = economyProvider.getProvider();
-    	return (this.economy == null);
+    	return (this.economy != null);
     }
 
     private void scheduleMessages(EventType type) {
