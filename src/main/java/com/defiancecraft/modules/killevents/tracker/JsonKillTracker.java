@@ -45,6 +45,16 @@ public class JsonKillTracker implements KillTracker {
 		
 		try {
 			
+			// Create parent directories and new file if not found;
+			// Don't bother trying to parse in this case, as file will be blank.
+			if (!file.exists()) {
+				if (file.getParentFile() != null && !file.getParentFile().isDirectory())
+					file.getParentFile().mkdirs();
+				file.createNewFile();
+				cache = new SerialKillTracker();
+				return;
+			}
+			
 			in = new FileInputStream(file);
 			if (gzip)
 				in = new GZIPInputStream(in);
