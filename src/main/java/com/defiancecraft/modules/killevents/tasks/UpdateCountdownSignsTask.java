@@ -2,6 +2,7 @@ package com.defiancecraft.modules.killevents.tasks;
 
 import java.util.ArrayList;
 
+import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -84,8 +85,12 @@ public class UpdateCountdownSignsTask extends BukkitRunnable {
 		
 		// Process each line and change it
 		for (int i = 0; i < Math.min(eventConfig.countdownSignFormat.size(), 4); i++) {
-			String line = eventConfig.countdownSignFormat.get(i)
-				.replace(SUBST_TIME, time);
+			// Replace {time} substitute in sign format, and format colour codes
+			String line = ChatColor.translateAlternateColorCodes(
+				'&',
+				eventConfig.countdownSignFormat.get(i)
+					.replace(SUBST_TIME, time)
+			);
 			
 			// Check if anything changed
 			if (!sign.getLine(i).equals(line)) {

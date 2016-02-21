@@ -15,6 +15,7 @@ import com.defiancecraft.core.util.FileUtils;
 import com.defiancecraft.modules.killevents.commands.AdminCommands;
 import com.defiancecraft.modules.killevents.config.KillEventsConfig;
 import com.defiancecraft.modules.killevents.config.components.EventConfig;
+import com.defiancecraft.modules.killevents.listeners.BlockListener;
 import com.defiancecraft.modules.killevents.listeners.PlayerListener;
 import com.defiancecraft.modules.killevents.managers.KillsBoardManager;
 import com.defiancecraft.modules.killevents.managers.LeaderboardSignManager;
@@ -72,6 +73,7 @@ public class KillEvents extends JavaModule {
     	// Register listeners
     	PluginManager pm = getServer().getPluginManager();
     	pm.registerEvents(new PlayerListener(this), this);
+    	pm.registerEvents(new BlockListener(this), this);
     	
     	// Start task for events ending
     	this.eventEndTask = new EventEndTask(this);
