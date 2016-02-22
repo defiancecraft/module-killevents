@@ -1,12 +1,9 @@
 package com.defiancecraft.modules.killevents.listeners;
 
-import net.md_5.bungee.api.ChatColor;
-
-import org.bukkit.Material;
-import org.bukkit.block.Sign;
+import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.SignChangeEvent;
 
 import com.defiancecraft.modules.killevents.KillEvents;
 import com.defiancecraft.modules.killevents.config.components.SerialCountdownSign;
@@ -22,25 +19,17 @@ public class BlockListener implements Listener {
 	}
 	
 	@EventHandler
-	public void onBlockPlace(BlockPlaceEvent e) {
-		if (!e.getBlock().getType().equals(Material.SIGN_POST)
-				&& !e.getBlock().getType().equals(Material.WALL_SIGN))
-			return;
-		
-		if (!(e.getBlock().getState() instanceof Sign))
-			return;
-		
-		Sign sign = (Sign)e.getBlock().getState();
+	public void onSignChanged(SignChangeEvent e) {
 		
 		// Process countdown signs
-		if (sign.getLine(0).equalsIgnoreCase(SIGN_COUNTDOWN_TRIGGER)) {
+		if (e.getLine(0).equalsIgnoreCase(SIGN_COUNTDOWN_TRIGGER)) {
 			
 			SerialCountdownSign cdSign = null;
-			if (sign.getLine(1).equalsIgnoreCase("hourly"))
+			if (e.getLine(1).equalsIgnoreCase("hourly"))
 				cdSign = new SerialCountdownSign(e.getBlock().getLocation(), EventType.HOURLY);
-			else if (sign.getLine(1).equalsIgnoreCase("daily"))
+			else if (e.getLine(1).equalsIgnoreCase("daily"))
 				cdSign = new SerialCountdownSign(e.getBlock().getLocation(), EventType.DAILY);
-			else if (sign.getLine(1).equalsIgnoreCase("weekly"))
+			else if (e.getLine(1).equalsIgnoreCase("weekly"))
 				cdSign = new SerialCountdownSign(e.getBlock().getLocation(), EventType.WEEKLY);
 			
 			if (cdSign != null) {

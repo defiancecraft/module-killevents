@@ -42,12 +42,13 @@ public class UpdateCountdownSignsTask extends BukkitRunnable {
 		KillEventsConfig config = plugin.getConfiguration();
 		EventConfig eventConfig = plugin.getConfiguration().getEventConfig(type);
 		int remainingTicks = 0;
+		int hourlyElapsed = plugin.getEventEndTask().getCurrentHourlyElapsed();
 		
 		// Calculate remaining ticks until event ends
 		switch (type) {
-		case HOURLY: remainingTicks = EventType.HOURLY.getTicks() - config.cache.hourlyElapsed; break;
-		case DAILY:  remainingTicks = EventType.DAILY.getTicks() - config.cache.dailyHours * 60 * 60 * 20 - config.cache.hourlyElapsed; break;
-		case WEEKLY: remainingTicks = EventType.WEEKLY.getTicks() - config.cache.weeklyHours * 60 * 60 * 20 - config.cache.hourlyElapsed; break;
+		case HOURLY: remainingTicks = EventType.HOURLY.getTicks() - hourlyElapsed; break;
+		case DAILY:  remainingTicks = EventType.DAILY.getTicks() - config.cache.dailyHours * 60 * 60 * 20 - hourlyElapsed; break;
+		case WEEKLY: remainingTicks = EventType.WEEKLY.getTicks() - config.cache.weeklyHours * 60 * 60 * 20 - hourlyElapsed; break;
 		default: break;
 		}
 		
@@ -59,21 +60,21 @@ public class UpdateCountdownSignsTask extends BukkitRunnable {
 		if (remainingSeconds >= 60 * 60 * 24) {
 			timeBuilder.append(remainingSeconds / (60 * 60 * 24))
 					   .append("d");
-			remainingSeconds -= (remainingSeconds / (60 * 60 * 24));
+			remainingSeconds %= (60 * 60 * 24);
 		}
 		
 		// Hours
 		if (remainingSeconds >= 60 * 60) {
 			timeBuilder.append(remainingSeconds / (60 * 60))
 					   .append("h");
-			remainingSeconds -= (remainingSeconds / (60 * 60));
+			remainingSeconds %= (60 * 60);
 		}
 		
 		// Minutes
 		if (remainingSeconds >= 60) {
 			timeBuilder.append(remainingSeconds / (60))
 					   .append("m");
-			remainingSeconds -= (remainingSeconds / 60);
+			remainingSeconds %= (60);
 		}
 		
 		// Seconds

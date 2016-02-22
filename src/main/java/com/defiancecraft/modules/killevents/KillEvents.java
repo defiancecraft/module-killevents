@@ -208,6 +208,10 @@ public class KillEvents extends JavaModule {
     	return tracker;
     }
     
+    public EventEndTask getEventEndTask() {
+    	return eventEndTask;
+    }
+    
     public KillsBoardManager getKillsBoardManager() {
     	return killsBoardManager;
     }

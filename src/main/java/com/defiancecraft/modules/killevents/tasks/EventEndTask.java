@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandException;
-import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import com.defiancecraft.modules.killevents.KillEvents;
@@ -49,15 +48,25 @@ public class EventEndTask extends BukkitRunnable {
 		
 	}
 	
+	public int getCurrentHourlyElapsed() {
+		
+		// TODO: move this to separate manager?
+		
+		// Calculate difference in ticks from last run of hourly event to now
+		long difference = System.currentTimeMillis() - lastTimeMillis;
+		int elapsed = (int)difference / 50;
+		
+		// If we haven't executed yet, add on the previous hourly elapsed
+		if (!hasExecuted)
+			elapsed += plugin.getConfiguration().cache.hourlyElapsed;
+		
+		return elapsed;
+		
+	}
+	
 	public void shutdown() {
 		
-		long difference = System.currentTimeMillis() - lastTimeMillis;
-		int ticks = (int)difference / 50;
-		int hourlyElapsed = ticks;
-
-		// If we have not yet executed, add the previous config time on 
-		if (!hasExecuted)
-			hourlyElapsed += plugin.getConfiguration().cache.hourlyElapsed;
+		int hourlyElapsed = getCurrentHourlyElapsed();
 		
 		if (hourlyElapsed >= EventType.HOURLY.getTicks()) {
 			Bukkit.getLogger().warning("Timing inconsistency detected! Hourly check took longer than expected. Future timing may not be aligned to current event timing.");
@@ -113,12 +122,10 @@ public class EventEndTask extends BukkitRunnable {
 				
 			}
 			
-			Player player = Bukkit.getPlayer(entry.getKey());
-			
 			// Attempt to reward player (execute playerCommands) if they are online;
 			// otherwise, add them to the pending reward list in the config cache.
 			if (!PlayerRewarding.rewardOnlinePlayer(
-					player.getUniqueId(),
+					entry.getKey(),
 					eventConfig.playerCommands.getOrDefault(canonicalPlace, Collections.<String>emptyList()),
 					kills)) {
 				
