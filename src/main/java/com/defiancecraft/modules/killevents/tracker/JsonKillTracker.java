@@ -41,6 +41,9 @@ public class JsonKillTracker implements KillTracker {
 	 */
 	public JsonKillTracker(File file, boolean gzip) {
 		
+		this.file = file;
+		this.gzip = gzip;
+		
 		InputStream in = null;
 		
 		try {
@@ -51,6 +54,11 @@ public class JsonKillTracker implements KillTracker {
 				if (file.getParentFile() != null && !file.getParentFile().isDirectory())
 					file.getParentFile().mkdirs();
 				file.createNewFile();
+				cache = new SerialKillTracker();
+				return;
+			}
+
+			if (file.length() == 0) {
 				cache = new SerialKillTracker();
 				return;
 			}
