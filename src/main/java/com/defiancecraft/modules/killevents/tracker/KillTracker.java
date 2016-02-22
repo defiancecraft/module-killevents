@@ -9,6 +9,13 @@ import com.defiancecraft.modules.killevents.util.EventType;
  * An interface to track kills for players for different events. This
  * involves storing and maintaining the players' number of kills, as
  * well as providing the means to change them.
+ * <p>
+ * <b>Note that 'kills' may be an arbitrary value, and serves no purpose
+ * other than to give a name to what is most likely to be tracked.</b>
+ * The KillTracker interface is a tracker of numeric values, and so should
+ * not be tied to the logistics behind the values. For example, a KillTracker
+ * implementation may be used to track 'points' instead of kills. The
+ * functioning of the KillTracker should not be affected by what it tracks. 
  */
 public interface KillTracker {
 

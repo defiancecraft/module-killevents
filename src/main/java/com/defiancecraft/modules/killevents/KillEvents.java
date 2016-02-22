@@ -19,6 +19,9 @@ import com.defiancecraft.modules.killevents.listeners.BlockListener;
 import com.defiancecraft.modules.killevents.listeners.PlayerListener;
 import com.defiancecraft.modules.killevents.managers.KillsBoardManager;
 import com.defiancecraft.modules.killevents.managers.LeaderboardSignManager;
+import com.defiancecraft.modules.killevents.strategies.ConstantPointStrategy;
+import com.defiancecraft.modules.killevents.strategies.PointStrategy;
+import com.defiancecraft.modules.killevents.strategies.TokenRewardsPointStrategy;
 import com.defiancecraft.modules.killevents.tasks.BroadcastMessageTask;
 import com.defiancecraft.modules.killevents.tasks.EventEndTask;
 import com.defiancecraft.modules.killevents.tasks.UpdateCountdownSignsTask;
@@ -47,6 +50,9 @@ public class KillEvents extends JavaModule {
 	// Vault economy
 	private Economy economy = null;
 	
+	// Point strategy
+	private PointStrategy pointStrategy;
+	
 	// -------------
 	// Overriden methods
 	// -------------
@@ -56,7 +62,15 @@ public class KillEvents extends JavaModule {
     
     	// Load config
     	this.config = getConfig(KillEventsConfig.class);
-    
+
+    	// Try to create TokenRewards strategy; if that fails, use constant
+    	try {
+    		this.pointStrategy = new TokenRewardsPointStrategy();
+    	} catch (IllegalStateException e) {
+    		getLogger().warning(String.format("Failed to create TokenRewards point strategy: %s.", e.getMessage()));
+    		this.pointStrategy = new ConstantPointStrategy(1);
+    	}
+    	
     	// Create kill tracker
     	this.tracker = new JsonKillTracker(new File(FileUtils.getSharedDirectory(), "killevents.json.gz.cache"), true);
     	
@@ -195,6 +209,10 @@ public class KillEvents extends JavaModule {
     // -------------
     // Getters
     // -------------
+    
+    public PointStrategy getPointStrategy() {
+		return pointStrategy;
+	}
     
     public Economy getEconomy() {
     	return economy;

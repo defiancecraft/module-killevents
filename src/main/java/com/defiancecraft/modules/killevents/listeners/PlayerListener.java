@@ -38,17 +38,15 @@ public class PlayerListener implements Listener {
 		if (!plugin.getConfiguration().pvpRegion.toSelection().contains(killer.getLocation()))
 			return;
 		
-		// Add kills for killer
+		// Add points for killer
+		int points = plugin.getPointStrategy().calculatePoints(killer, e.getEntity());
 		KillTracker tracker = plugin.getTracker();
-		tracker.setKills(killer.getUniqueId(), EventType.HOURLY, tracker.getKills(killer.getUniqueId(), EventType.HOURLY) + 1);
-		tracker.setKills(killer.getUniqueId(), EventType.DAILY, tracker.getKills(killer.getUniqueId(), EventType.DAILY) + 1);
-		tracker.setKills(killer.getUniqueId(), EventType.WEEKLY, tracker.getKills(killer.getUniqueId(), EventType.WEEKLY) + 1);
+		tracker.setKills(killer.getUniqueId(), EventType.HOURLY, tracker.getKills(killer.getUniqueId(), EventType.HOURLY) + points);
+		tracker.setKills(killer.getUniqueId(), EventType.DAILY, tracker.getKills(killer.getUniqueId(), EventType.DAILY) + points);
+		tracker.setKills(killer.getUniqueId(), EventType.WEEKLY, tracker.getKills(killer.getUniqueId(), EventType.WEEKLY) + points);
 		
 		// Update scoreboard
 		plugin.getKillsBoardManager().updatePlayer(killer, false);
-		
-		// Update sign walls
-		
 		
 	}
 	
