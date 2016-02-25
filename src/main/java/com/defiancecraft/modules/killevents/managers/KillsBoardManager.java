@@ -11,11 +11,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
-import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 
+import com.comphenix.packetwrapper.WrapperPlayServerScoreboardDisplayObjective;
+import com.comphenix.packetwrapper.WrapperPlayServerScoreboardObjective;
+import com.comphenix.packetwrapper.WrapperPlayServerScoreboardScore;
+import com.comphenix.protocol.wrappers.EnumWrappers.ScoreboardAction;
 import com.defiancecraft.modules.killevents.KillEvents;
 import com.defiancecraft.modules.killevents.config.KillEventsConfig;
 import com.defiancecraft.modules.killevents.tasks.UpdateKillsBoardTask;
@@ -24,7 +26,9 @@ import com.defiancecraft.modules.killevents.util.EventType;
 public class KillsBoardManager  {
 
 	private static final String OBJECTIVE_NAME = "KillEvents";
-	private static final String DUMMY_CRITERIA = "dummy";
+	
+	// Value for field 'Position' for sidebar position of packet 0x3D (display scoreboard) 
+	private static final int DISPLAY_POSITION_SIDEBAR = 1;
 	
 	// Reference to plugin
 	private KillEvents plugin;
@@ -51,38 +55,31 @@ public class KillsBoardManager  {
 	 * @param player Player to register
 	 */
 	public void registerPlayer(Player player) {
-		Scoreboard oldBoard = player.getScoreboard();
 		
-		// Don't do anything if we already own the board
-		if (oldBoard != null && oldBoard.getObjective(OBJECTIVE_NAME) != null)
-			return;
-		
-		// Create scoreboard if player does not have one
-		Scoreboard board = oldBoard != null ? oldBoard : Bukkit.getScoreboardManager().getNewScoreboard();
-		
-		// If an objective exists in sidebar, return if we are in passive
-		// mode, and clear if we are in aggressive mode.
-		if (board.getObjective(DisplaySlot.SIDEBAR) != null)
-			if (plugin.getConfiguration().scoreboard.passive)
-				return;
-			else
-				board.clearSlot(DisplaySlot.SIDEBAR);
-		
-		Objective objective = board.registerNewObjective(OBJECTIVE_NAME, DUMMY_CRITERIA);
+		// Create packet to create objective
+		WrapperPlayServerScoreboardObjective objective = new WrapperPlayServerScoreboardObjective();
+		objective.setName(OBJECTIVE_NAME);
 		objective.setDisplayName(ChatColor.translateAlternateColorCodes('&', plugin.getConfiguration().scoreboard.title));
-		objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+		objective.setMode(WrapperPlayServerScoreboardObjective.Mode.ADD_OBJECTIVE);
+
+		// Create packet to show objective
+		WrapperPlayServerScoreboardDisplayObjective displayObjective = new WrapperPlayServerScoreboardDisplayObjective();
+		displayObjective.setPosition(DISPLAY_POSITION_SIDEBAR);
+		displayObjective.setScoreName(OBJECTIVE_NAME);
+		
+		objective.sendPacket(player);
+		displayObjective.sendPacket(player);
 	
 		// Add them to registered players
 		if (!this.registeredPlayers.contains(player.getUniqueId()))
 			this.registeredPlayers.add(player.getUniqueId());
+		
 		
 		// Set scores
 		setScore(player, KillsBoardVariable.HOURLY_KILLS, 0);
 		setScore(player, KillsBoardVariable.DAILY_KILLS, 0);
 		setScore(player, KillsBoardVariable.WEEKLY_KILLS, 0);
 		setScore(player, KillsBoardVariable.TOKENS, 0);
-		
-		player.setScoreboard(board);
 		
 	}
 
@@ -96,10 +93,8 @@ public class KillsBoardManager  {
 		Scoreboard board = player.getScoreboard();
 		Objective objective;
 		
-		if (board != null && (objective = board.getObjective(OBJECTIVE_NAME)) != null) {
+		if (board != null && (objective = board.getObjective(OBJECTIVE_NAME)) != null)
 			objective.unregister();
-			player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
-		}
 	
 		this.registeredPlayers.remove(player.getUniqueId());
 	}
@@ -171,16 +166,20 @@ public class KillsBoardManager  {
 	 * @param newScore New score
 	 */
 	public void setScore(Player player, KillsBoardVariable variable, int newScore) {
-		Scoreboard board = player.getScoreboard();
-		Objective objective;
 		
-		// Ensure it's the right board
-		if (board == null || (objective = board.getObjective(OBJECTIVE_NAME)) == null)
+		if (!registeredPlayers.contains(player.getUniqueId()))
 			return;
 		
-		// Set their score
-		Score score = objective.getScore(variable.getDisplayName(plugin.getConfiguration()));
-		score.setScore(newScore);
+		// Send packet to player individually to update the score
+		// (If their score was updated using Bukkit's APIs, the scores would
+		// also be updated for everyone else.)
+		WrapperPlayServerScoreboardScore setScore = new WrapperPlayServerScoreboardScore();
+		setScore.setObjectiveName(OBJECTIVE_NAME);
+		setScore.setScoreboardAction(ScoreboardAction.CHANGE);
+		setScore.setScoreName(variable.getDisplayName(plugin.getConfiguration()));
+		setScore.setValue(newScore);
+		setScore.sendPacket(player);
+		
 	}
 	
 	public static enum KillsBoardVariable {
