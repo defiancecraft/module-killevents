@@ -93,7 +93,7 @@ public class EventEndTask extends BukkitRunnable {
 		List<Entry<UUID, Integer>> placements = plugin.getTracker().getEventKills(type)
 			.entrySet()
 			.stream()
-			.sorted((a, b) -> a.getValue().compareTo(b.getValue())) // Sort
+			.sorted((a, b) -> b.getValue().compareTo(a.getValue())) // Sort descending
 			.collect(Collectors.toList()); // Collect as ordered list
 		
 		// Reset event kills (we already have the kills stored)
