@@ -54,6 +54,10 @@ public class UpdateCountdownSignsTask extends BukkitRunnable {
 		
 		// Convert to nice date format
 		int remainingSeconds = remainingTicks / 20;
+		
+		if (remainingSeconds < 0)
+			return;
+		
 		StringBuilder timeBuilder = new StringBuilder();
 		
 		// Days
