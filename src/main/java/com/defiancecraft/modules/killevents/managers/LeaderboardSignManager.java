@@ -54,7 +54,7 @@ public class LeaderboardSignManager {
 				// Get blocks `i` blocks down from the maximum point (max x, y, and z);
 				// Right vector is specific to direction of sign wall and will get sign to the
 				// right of the other
-				Block leftBlock  = sel.getMaximumPoint().add(new Vector(0, i, 0)).subtract(rightVector).getBlock();
+				Block leftBlock  = sel.getMaximumPoint().add(new Vector(0, -i, 0)).subtract(rightVector).getBlock();
 				Block rightBlock = leftBlock.getLocation().add(rightVector).getBlock();
 				
 				// Ensure both blocks are signs
@@ -64,10 +64,19 @@ public class LeaderboardSignManager {
 				List<Entry<String, Integer>> signContent = cachedSignContent.get(signWall.type);
 				Sign leftSign  = (Sign)leftBlock.getState();
 				Sign rightSign = (Sign)rightBlock.getState();
-				
-				// Continue adding lines until we get to fourth line or 
-				// the number of total lines is past the size of the leaderboard
-				for (int line = 0; line < 4 && i * 4 + line < signContent.size(); line++) {
+
+				// We have to go over every possible line because old values
+				// may still be there and must be erased if they're not part
+				// of the new leaderboard
+				for (int line = 0; line < 4; line++) {
+					
+					if (i * 4 + line >= signContent.size()) {
+						leftSign.setLine(line, "");
+						leftSign.update();
+						rightSign.setLine(line, "");
+						rightSign.update();
+						continue;
+					}
 					
 					// Lazily change and update the left sign (the user's name)
 					String oldLeft = leftSign.getLine(line);
@@ -92,7 +101,7 @@ public class LeaderboardSignManager {
 	private List<Entry<String, Integer>> getSignContent(EventType type) {
 		return plugin.getTracker().getEventKills(type).entrySet()
 			.stream()
-			.sorted((a, b) -> a.getValue().compareTo(b.getValue()))
+			.sorted((a, b) -> b.getValue().compareTo(a.getValue())) // Compare a to b (descending)
 			.<Entry<String, Integer>>map((e) -> {
 				
 				return new AbstractMap.SimpleEntry<String, Integer>(
