@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -129,18 +128,21 @@ public class JsonKillTracker implements KillTracker {
 		if (gzip)
 			out = new GZIPOutputStream(out);
 		
-		// Write data
-		GSON.toJson(cache, new OutputStreamWriter(out));
+		out.write(GSON.toJson(cache).getBytes());
+		if (gzip)
+			((GZIPOutputStream)out).finish();
 		
-		// Close output stream
+		out.flush();
 		out.close();
 		
 	}
 	
-	protected class SerialKillTracker {
+	public static class SerialKillTracker {
 		public Map<UUID, Integer> hourlyKills = new HashMap<>();
 		public Map<UUID, Integer> dailyKills = new HashMap<>();
 		public Map<UUID, Integer> weeklyKills = new HashMap<>();
+		
+		public SerialKillTracker() {}
 		
 		public Map<UUID, Integer> getMap(EventType type) {
 			switch (type) {
