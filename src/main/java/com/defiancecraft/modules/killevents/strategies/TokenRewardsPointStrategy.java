@@ -17,7 +17,8 @@ public class TokenRewardsPointStrategy implements PointStrategy {
 	
 	@Override
 	public int calculatePoints(Player killer, Player victim) {
-		return TokenRewarder.getTokenReward(victim, TokenRewards.getConfiguration());
+		// If they are eligible for reward, calculate their token reward
+		return TokenRewarder.isEligible(killer, victim) ? TokenRewarder.getTokenReward(victim, TokenRewards.getConfiguration()) : 0;
 	}
 	
 }
