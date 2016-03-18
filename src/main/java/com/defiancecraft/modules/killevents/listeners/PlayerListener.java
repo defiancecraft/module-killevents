@@ -25,7 +25,7 @@ public class PlayerListener implements Listener {
 
 	// Handle kill event to add kills to tracker and update
 	// the scoreboard for that player
-	@EventHandler
+	@EventHandler(priority = EventPriority.LOWEST)
 	public void onPlayerKill(PlayerDeathEvent e) {
 		
 		Player killer = e.getEntity().getKiller();
