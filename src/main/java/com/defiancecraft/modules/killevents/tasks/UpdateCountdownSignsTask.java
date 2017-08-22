@@ -8,12 +8,10 @@ import org.bukkit.block.Sign;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import com.defiancecraft.modules.killevents.KillEvents;
-import com.defiancecraft.modules.killevents.config.KillEventsConfig;
 import com.defiancecraft.modules.killevents.config.components.EventConfig;
 import com.defiancecraft.modules.killevents.config.components.SerialCountdownSign;
 import com.defiancecraft.modules.killevents.util.EventType;
 
-// TODO: refactor so values are saved across event types and reused
 public class UpdateCountdownSignsTask extends BukkitRunnable {
 
 	private static final String SUBST_TIME = "{time}";
@@ -24,6 +22,7 @@ public class UpdateCountdownSignsTask extends BukkitRunnable {
 	}
 	
 	public void run() {
+		// Update each registered countdown sign
 		for (SerialCountdownSign sign : new ArrayList<SerialCountdownSign>(plugin.getConfiguration().cache.countdownSigns)) {
 			
 			Block signBlock = sign.location.toBlock();
@@ -39,62 +38,18 @@ public class UpdateCountdownSignsTask extends BukkitRunnable {
 	
 	private void updateSign(Sign sign, EventType type) {
 		
-		KillEventsConfig config = plugin.getConfiguration();
 		EventConfig eventConfig = plugin.getConfiguration().getEventConfig(type);
-		int remainingTicks = 0;
-		int hourlyElapsed = plugin.getEventEndTask().getCurrentHourlyElapsed();
 		
-		// Calculate remaining ticks until event ends
-		switch (type) {
-		case HOURLY: remainingTicks = EventType.HOURLY.getTicks() - hourlyElapsed; break;
-		case DAILY:  remainingTicks = EventType.DAILY.getTicks() - config.cache.dailyHours * 60 * 60 * 20 - hourlyElapsed; break;
-		case WEEKLY: remainingTicks = EventType.WEEKLY.getTicks() - config.cache.weeklyHours * 60 * 60 * 20 - hourlyElapsed; break;
-		default: break;
-		}
+		String time = plugin.getEventEndTask().getRemainingTimeString(type, "{days|d} {hours|h} {minutes|m} {seconds|s}"); 
+		boolean changed = false; // Whether the sign needs to be updated
 		
-		// Convert to nice date format
-		int remainingSeconds = remainingTicks / 20;
-		
-		if (remainingSeconds < 0)
-			return;
-		
-		StringBuilder timeBuilder = new StringBuilder();
-		
-		// Days
-		if (remainingSeconds >= 60 * 60 * 24) {
-			timeBuilder.append(remainingSeconds / (60 * 60 * 24))
-					   .append("d");
-			remainingSeconds %= (60 * 60 * 24);
-		}
-		
-		// Hours
-		if (remainingSeconds >= 60 * 60) {
-			timeBuilder.append(remainingSeconds / (60 * 60))
-					   .append("h");
-			remainingSeconds %= (60 * 60);
-		}
-		
-		// Minutes
-		if (remainingSeconds >= 60) {
-			timeBuilder.append(remainingSeconds / (60))
-					   .append("m");
-			remainingSeconds %= (60);
-		}
-		
-		// Seconds
-		timeBuilder.append(remainingSeconds)
-				   .append("s");
-		
-		String time = timeBuilder.toString();
-		boolean changed = false;
-		
-		// Process each line and change it
+		// Process each line from the format configuration and
+		// update sign accordingly
 		for (int i = 0; i < Math.min(eventConfig.countdownSignFormat.size(), 4); i++) {
 			// Replace {time} substitute in sign format, and format colour codes
 			String line = ChatColor.translateAlternateColorCodes(
 				'&',
-				eventConfig.countdownSignFormat.get(i)
-					.replace(SUBST_TIME, time)
+				eventConfig.countdownSignFormat.get(i).replace(SUBST_TIME, time)
 			);
 			
 			// Check if anything changed

@@ -1,16 +1,16 @@
 package com.defiancecraft.modules.killevents.managers;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
@@ -19,9 +19,9 @@ import com.comphenix.packetwrapper.WrapperPlayServerScoreboardObjective;
 import com.comphenix.packetwrapper.WrapperPlayServerScoreboardScore;
 import com.comphenix.protocol.wrappers.EnumWrappers.ScoreboardAction;
 import com.defiancecraft.modules.killevents.KillEvents;
-import com.defiancecraft.modules.killevents.config.KillEventsConfig;
+import com.defiancecraft.modules.killevents.config.components.ScoreboardConfig;
 import com.defiancecraft.modules.killevents.tasks.UpdateKillsBoardTask;
-import com.defiancecraft.modules.killevents.util.EventType;
+import com.defiancecraft.modules.killevents.tokens.TokenParser;
 
 public class KillsBoardManager  {
 
@@ -30,16 +30,18 @@ public class KillsBoardManager  {
 	// Value for field 'Position' for sidebar position of packet 0x3D (display scoreboard) 
 	private static final int DISPLAY_POSITION_SIDEBAR = 1;
 	
+	// Cache of scoreboards for players, so that unnecessary score update
+	// packets are not sent if nothing changes.
+	private final Map<UUID, List<String>> scoreboardCache = new HashMap<>();
+	
+	// List of registered parsers
+	private final Set<TokenParser> parsers = new HashSet<>();
+	
 	// Reference to plugin
 	private KillEvents plugin;
 	
 	// Update board task
 	private UpdateKillsBoardTask updateTask;
-	
-	// List of players for whom a task to update their money is running
-	// (for individuals triggered with #updatePlayer; `updateTask` handles
-	// everyone)
-	private List<UUID> updatingMoney = new ArrayList<>();
 	
 	// List of registered players (i.e. those who will be shown the scoreboard)
 	private Set<UUID> registeredPlayers = new HashSet<>();
@@ -74,12 +76,8 @@ public class KillsBoardManager  {
 		if (!this.registeredPlayers.contains(player.getUniqueId()))
 			this.registeredPlayers.add(player.getUniqueId());
 		
-		
-		// Set scores
-		setScore(player, KillsBoardVariable.HOURLY_KILLS, 0);
-		setScore(player, KillsBoardVariable.DAILY_KILLS, 0);
-		setScore(player, KillsBoardVariable.WEEKLY_KILLS, 0);
-		setScore(player, KillsBoardVariable.TOKENS, 0);
+		// Update the scores of player
+		this.updateScores(player);
 		
 	}
 
@@ -93,10 +91,13 @@ public class KillsBoardManager  {
 		Scoreboard board = player.getScoreboard();
 		Objective objective;
 		
+		// TODO: test this -- won't it clear the board for everyone?
+		
 		if (board != null && (objective = board.getObjective(OBJECTIVE_NAME)) != null)
 			objective.unregister();
 	
 		this.registeredPlayers.remove(player.getUniqueId());
+		this.scoreboardCache.remove(player.getUniqueId());
 	}
 	
 	/**
@@ -107,10 +108,12 @@ public class KillsBoardManager  {
 	 */
 	public void unregisterPlayer(UUID uuid) {
 		Player player = Bukkit.getPlayer(uuid);
-		if (player != null && player.isOnline())
+		if (player != null && player.isOnline()) {
 			unregisterPlayer(player);
-		else
+		} else {
 			this.registeredPlayers.remove(uuid);
+			this.scoreboardCache.remove(uuid);
+		}
 	}
 	
 	/**
@@ -132,73 +135,141 @@ public class KillsBoardManager  {
 	}
 
 	/**
-	 * Updates the hourly, daily, and weekly kills variables for the player
-	 * on their scoreboard. If `updateMoney` is set to true, their money will
-	 * be updated via a BukkitRunnable task (as this operation is expensive).
+	 * Registers a parser that will be called when processing the
+	 * configured lines for the scoreboard (see {@link ScoreboardConfig#lines}).
 	 * 
-	 * @param player Player whose scoreboard will be updated
-	 * @param updateMoney Whether to retrieve & update the player's money too
+	 * @param parser Parser to register
+	 * @return Whether the parser was added (it will not be if present)
 	 */
-	public void updatePlayer(Player player, boolean updateMoney) {
-		setScore(player, KillsBoardVariable.HOURLY_KILLS, plugin.getTracker().getKills(player.getUniqueId(), EventType.HOURLY));
-		setScore(player, KillsBoardVariable.DAILY_KILLS, plugin.getTracker().getKills(player.getUniqueId(), EventType.DAILY));
-		setScore(player, KillsBoardVariable.WEEKLY_KILLS, plugin.getTracker().getKills(player.getUniqueId(), EventType.WEEKLY));
-		if (!updatingMoney.contains(player.getUniqueId()) && updateMoney) {
-			
-			final UUID uuid = player.getUniqueId();
-			updatingMoney.add(uuid);
-			
-			// Update their money on next tick
-			new BukkitRunnable() {
-				public void run() {
-					updateTask.updatePlayer(uuid, KillsBoardManager.this);
-					updatingMoney.remove(uuid);
-				}
-			}.runTask(plugin);
-		}
+	public boolean registerParser(TokenParser parser) {
+		return this.parsers.add(parser);
 	}
 	
 	/**
-	 * Sets a score (i.e. variable) for a player on their scoreboard
+	 * Removes a parser from the chain of parsers for scoreboard
+	 * 'lines' (see {@link ScoreboardConfig#lines}). After removing,
+	 * subsequent calls to {@link #updateScores(Player)} will not
+	 * call the parser.
 	 * 
-	 * @param player Player to set score for
-	 * @param variable Variable for which to adjust score
-	 * @param newScore New score
+	 * @param parser Parser to remove
+	 * @return Whether parser was removed
 	 */
-	public void setScore(Player player, KillsBoardVariable variable, int newScore) {
+	public boolean unregisterParser(TokenParser parser) {
+		return this.parsers.remove(parser);
+	}
+	
+	/**
+	 * Parses a string's tokens by running it through the chain
+	 * of registered parsers.
+	 *  
+	 * @param input Input to parse
+	 * @param player Player to pass to parsers
+	 * @return Parsed string
+	 */
+	private String parseString(String input, Player player) {
 		
-		if (!registeredPlayers.contains(player.getUniqueId()))
-			return;
+		// Attempt to execute each parser
+		for (TokenParser parser : parsers) {
+			try {
+				if (parser != null)
+					input = parser.apply(input, player);
+			} catch (Exception e) {
+				// Log any exception
+				plugin.getLogger().severe(
+					String.format(
+						"Failed to execute parser (class: %s).\nException type: %s\nException message: %s",
+						parser.getClass().getName(),
+						e.getClass().getName(),
+						e.getMessage()
+					)
+				);
+				
+				continue;
+			}
+		}
+		return input;
+	}
+	
+	public void updateScores(Player player) {
 		
-		// Send packet to player individually to update the score
-		// (If their score was updated using Bukkit's APIs, the scores would
-		// also be updated for everyone else.)
-		WrapperPlayServerScoreboardScore setScore = new WrapperPlayServerScoreboardScore();
-		setScore.setObjectiveName(OBJECTIVE_NAME);
-		setScore.setScoreboardAction(ScoreboardAction.CHANGE);
-		setScore.setScoreName(variable.getDisplayName(plugin.getConfiguration()));
-		setScore.setValue(newScore);
-		setScore.sendPacket(player);
+		// Synchronize on player's entry in cache to prevent race conditions;
+		// This method can be called from a periodic task, or from event handlers.
+		synchronized(scoreboardCache.containsKey(player.getUniqueId()) ? scoreboardCache.get(player.getUniqueId()) : new Object()) {
+			
+			List<String> lines = plugin.getConfiguration().scoreboard.lines;
+			List<String> newLines = new ArrayList<>();
+			UUID uuid = player.getUniqueId();
+			
+			// Process all lines first, so there is no delay between
+			// updating scores on the scoreboard. E.g. if one line
+			// included a DB query, the next would take longer to
+			// appear.
+			for (String line : lines)
+				newLines.add(parseString(line, player));
+	
+			// Update scores line by line
+			for (int i = 0; i < lines.size(); i++) {
+				
+				String line = newLines.get(i);
+				
+				// Update score (send packet) if:
+				//   - player is not in cache, or
+				//   - current line in cache does not match this
+				//     processed line (i.e. it has changed) 
+				if (!scoreboardCache.containsKey(uuid)
+						|| !scoreboardCache.get(uuid).get(i).equals(line)) {
+					removeScore(player, scoreboardCache.get(uuid).get(i)); // Remove old score
+					setScore(player, line, lines.size() - i);  // Add new score with value inversely high compared to index (scoreboard is sorted descending)
+				}
+			}
+			
+			// Update cache with new lines
+			scoreboardCache.put(uuid, newLines);
+			
+		}
 		
 	}
 	
-	public static enum KillsBoardVariable {
+	/**
+	 * Removes a score from a player's scoreboard by constructing
+	 * and sending them a packet. Note that the packet is sent only to
+	 * the player so the score does not change for the entire server.
+	 * <p>
+	 * If the length of `name` exceeds 16 characters, it will be truncated.
+	 * 
+	 * @param player Player to remove score from
+	 * @param name Name of score (must be exact; max length 16 characters)
+	 */
+	private void removeScore(Player player, String name) {
+		name = name.length() > 16 ? name.substring(0, 16) : name;
 		
-		HOURLY_KILLS((config) -> config.scoreboard.objHourly),
-		DAILY_KILLS((config) -> config.scoreboard.objDaily),
-		WEEKLY_KILLS((config) -> config.scoreboard.objWeekly),
-		TOKENS((config) -> config.scoreboard.objTokens);
+		WrapperPlayServerScoreboardScore removeScore = new WrapperPlayServerScoreboardScore();
+		removeScore.setObjectiveName(OBJECTIVE_NAME);
+		removeScore.setScoreboardAction(ScoreboardAction.REMOVE);
+		removeScore.setScoreName(name);
+		removeScore.sendPacket(player);
+	}
+	
+	/**
+	 * Sets a score in a player's scoreboard by constructing and
+	 * sending them a packet. Note that the packet is sent only to
+	 * the player so the score does not change for the entire server.
+	 * <p>
+	 * If the length of `name` exceeds 16 characters, it will be truncated.
+	 * 
+	 * @param player Player to set score for
+	 * @param name Name of score (must be exact; max length 16 characters)
+	 * @param score Score value
+	 */
+	private void setScore(Player player, String name, int score) {
+		name = name.length() > 16 ? name.substring(0, 16) : name;
 		
-		private Function<KillEventsConfig, String> getDisplayNameFunction;
-		
-		KillsBoardVariable(Function<KillEventsConfig, String> getDisplayNameFunction) {
-			this.getDisplayNameFunction = getDisplayNameFunction;
-		}
-		
-		public String getDisplayName(KillEventsConfig config) {
-			return getDisplayNameFunction.apply(config);
-		}
-		
+		WrapperPlayServerScoreboardScore setScore = new WrapperPlayServerScoreboardScore();
+		setScore.setObjectiveName(OBJECTIVE_NAME);
+		setScore.setScoreboardAction(ScoreboardAction.CHANGE);
+		setScore.setScoreName(name);
+		setScore.setValue(score);
+		setScore.sendPacket(player);
 	}
 	
 }

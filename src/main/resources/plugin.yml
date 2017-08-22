@@ -1,7 +1,7 @@
 name: KillEvents
 version: 0.1.0
 main: com.defiancecraft.modules.killevents.KillEvents
-softdepend: [TokenRewards]
+softdepend: [TokenRewards, Factions]
 depend: [Vault, ProtocolLib]
 commands:
   killevents:

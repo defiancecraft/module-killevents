@@ -9,6 +9,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import com.defiancecraft.modules.killevents.KillEvents;
 import com.defiancecraft.modules.killevents.tracker.KillTracker;
@@ -46,7 +48,11 @@ public class PlayerListener implements Listener {
 		tracker.setKills(killer.getUniqueId(), EventType.WEEKLY, tracker.getKills(killer.getUniqueId(), EventType.WEEKLY) + points);
 		
 		// Update scoreboard
-		plugin.getKillsBoardManager().updatePlayer(killer, false);
+		new BukkitRunnable() {
+			public void run() {
+				plugin.getKillsBoardManager().updateScores(killer);
+			}
+		}.runTask(plugin);
 		
 	}
 	
@@ -56,9 +62,14 @@ public class PlayerListener implements Listener {
 
 		if (plugin.getConfiguration().pvpRegion != null
 				&& e.getPlayer().getWorld().getName().equalsIgnoreCase(plugin.getConfiguration().pvpRegion.a.world)) {
-			// Show scoreboard for player
-			plugin.getKillsBoardManager().registerPlayer(e.getPlayer());
-			plugin.getKillsBoardManager().updatePlayer(e.getPlayer(), true);
+			
+			new BukkitRunnable() {
+				public void run() {
+					// Show scoreboard for player
+					plugin.getKillsBoardManager().registerPlayer(e.getPlayer());
+					plugin.getKillsBoardManager().updateScores(e.getPlayer());
+				}
+			}.runTask(plugin);
 		}
 		
 		// Attempt to reward player if they have pending reward
@@ -84,10 +95,23 @@ public class PlayerListener implements Listener {
 		} else if (e.getPlayer().getWorld().getName().equalsIgnoreCase(plugin.getConfiguration().pvpRegion.a.world)
 				&& !plugin.getKillsBoardManager().isPlayerRegistered(e.getPlayer().getUniqueId())) {
 			
-			plugin.getKillsBoardManager().registerPlayer(e.getPlayer());
-			plugin.getKillsBoardManager().updatePlayer(e.getPlayer(), true);
+			new BukkitRunnable() {
+				public void run() {
+					plugin.getKillsBoardManager().registerPlayer(e.getPlayer());
+					plugin.getKillsBoardManager().updateScores(e.getPlayer());
+				}
+			}.runTask(plugin);
 			
 		}
+		
+	}
+	
+	@EventHandler
+	public void onPlayerQuit(PlayerQuitEvent e) {
+		
+		// Unregister by UUID, as there is no need to remove objective if
+		// they are leaving the server.
+		plugin.getKillsBoardManager().unregisterPlayer(e.getPlayer().getUniqueId());
 		
 	}
 	

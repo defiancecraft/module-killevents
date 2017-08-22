@@ -26,6 +26,10 @@ import com.defiancecraft.modules.killevents.tasks.BroadcastMessageTask;
 import com.defiancecraft.modules.killevents.tasks.EventEndTask;
 import com.defiancecraft.modules.killevents.tasks.UpdateCountdownSignsTask;
 import com.defiancecraft.modules.killevents.tasks.UpdateLeaderboardSignsTask;
+import com.defiancecraft.modules.killevents.tokens.killsboard.BukkitParsers;
+import com.defiancecraft.modules.killevents.tokens.killsboard.DefianceCraftParsers;
+import com.defiancecraft.modules.killevents.tokens.killsboard.FactionsParsers;
+import com.defiancecraft.modules.killevents.tokens.killsboard.KillEventsParsers;
 import com.defiancecraft.modules.killevents.tracker.JsonKillTracker;
 import com.defiancecraft.modules.killevents.tracker.KillTracker;
 import com.defiancecraft.modules.killevents.util.EventType;
@@ -78,8 +82,20 @@ public class KillEvents extends JavaModule {
     	if (!this.setupVault())
     		getLogger().warning("Failed to setup Vault. Please ensure the plugin is installed and an economy is setup. Plugin may fail.");
 
-    	// Create scoreboard
+    	// Create scoreboard & parsers
     	this.killsBoardManager = new KillsBoardManager(this);
+    	this.killsBoardManager.registerParser(BukkitParsers::parsePlayersOnline); // {online}
+    	this.killsBoardManager.registerParser(BukkitParsers::parseMaxPlayers); // {max}
+    	
+    	KillEventsParsers keParsers = new KillEventsParsers(this);
+    	this.killsBoardManager.registerParser(keParsers::parsePoints); // {hpoints}, {dpoints}, {wpoints}
+    	this.killsBoardManager.registerParser(keParsers::parseTimeRemaining); // {htime}, {dtime}, {wtime}
+    	
+    	DefianceCraftParsers dcParsers = new DefianceCraftParsers(this);
+    	this.killsBoardManager.registerParser(dcParsers::parseEconomyBalance); // {tokens}
+    	
+    	FactionsParsers factionsParsers = new FactionsParsers();
+    	this.killsBoardManager.registerParser(factionsParsers::parseFactionPower); // {fpower}, {fmaxpower}
     	
     	// Create leaderboard sign manager
     	this.leaderboardSignManager = new LeaderboardSignManager(this);
@@ -114,28 +130,6 @@ public class KillEvents extends JavaModule {
     	CommandRegistry.registerPlayerSubCommand("killevents", "signwall", "defiancecraft.killevents.signwall", adminCmds::signWall);
     	CommandRegistry.registerPlayerSubCommand("killevents", "setregion", "defiancecraft.killevents.setregion", adminCmds::setRegion);
     
-    	// TODO: block place handlers for signs nd shit
-    	// TODO: commands for shit
-    	// X Listeners for kills
-    	// X Some form of logging of kills - SQLite database, ObjectOutputStream, etc.
-    	//
-    	// - Run the EventEndTask (hourly)
-    	// |-- Run end for hourly event
-    	// |-- Check if daily event is reached; if yes,
-    	// |   run end for daily event. Otherwise, increment
-    	// |   number of hours for daily event.
-    	// +-- Check if weekly event is reached (as above).
-    	//
-    	// - An 'end' for an event should consist of the following
-    	// |-- Carry out serverCommands for the top x players
-    	// |-- Carry out playerCommands for top x players; if not online,
-    	// |   add them to a cache of sorts and do it when they next connect.
-    	// |-- Reset everyone's kills for that event
-    	// |-- Restart countdown sign update task for that event?
-    	// +-- Reset the counter for that event (e.g. hourly ticks elapsed, or weekly hours). 
-    	//
-    	// - Run a task to update signs
-    	
     }
     
 	@Override

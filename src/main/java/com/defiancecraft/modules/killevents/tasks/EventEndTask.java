@@ -1,5 +1,7 @@
 package com.defiancecraft.modules.killevents.tasks;
 
+import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,6 +16,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import com.defiancecraft.modules.killevents.KillEvents;
 import com.defiancecraft.modules.killevents.config.KillEventsCache;
 import com.defiancecraft.modules.killevents.config.KillEventsCache.PendingRewardRecord;
+import com.defiancecraft.modules.killevents.config.KillEventsConfig;
 import com.defiancecraft.modules.killevents.config.components.EventConfig;
 import com.defiancecraft.modules.killevents.util.CommandUtils;
 import com.defiancecraft.modules.killevents.util.EventType;
@@ -61,6 +64,85 @@ public class EventEndTask extends BukkitRunnable {
 			elapsed += plugin.getConfiguration().cache.hourlyElapsed;
 		
 		return elapsed;
+		
+	}
+	
+	/**
+	 * Gets the remaining time for an event
+	 * 
+	 * @param event Event to get remaining time for 
+	 * @return Duration representing remaining time until event ends
+	 */
+	public Duration getRemainingTime(EventType event) {
+		
+		int hourlyElapsed = getCurrentHourlyElapsed();
+		KillEventsConfig config = plugin.getConfiguration();
+		
+		int ticks = -1;
+		
+		// Calculate remaining ticks until event ends
+		switch (event) {
+		case HOURLY: ticks = EventType.HOURLY.getTicks() - hourlyElapsed; break;
+		case DAILY:  ticks = EventType.DAILY.getTicks() - config.cache.dailyHours * 60 * 60 * 20 - hourlyElapsed; break;
+		case WEEKLY: ticks = EventType.WEEKLY.getTicks() - config.cache.weeklyHours * 60 * 60 * 20 - hourlyElapsed; break;
+		}
+
+		if (ticks == -1)
+			return null;
+		
+		return Duration.ofMillis(ticks * 50l);
+		
+	}
+	
+	/**
+	 * Gets the remaining time for an event as a string formatted with the
+	 * remaining days, hours, minutes, and seconds. Note that fields with values
+	 * of 0 will not be displayed unless they have a temporal unit of higher value
+	 * with a non-zero value.
+	 * <p>
+	 * E.g. for a format string <code>{days|d} {hours|h} {minutes|m} {seconds|s}</code>,
+	 *      if there are 0 days, 4 hours, 0 minutes, and 5 seconds, the following
+	 *      string would be displayed:
+	 *      <code>4h 0m 5s</code>
+	 * <p>
+	 * The format string is a plain string containing groups that will be replaced
+	 * of the following form:
+	 * <pre>
+     * &lt;group&gt;     ::= "{" &lt;unit&gt; &lt;opt-extra&gt; "}"
+     * &lt;unit&gt;      ::= "days" | "hours" | "minutes" | "seconds"
+     * &lt;opt-extra&gt; ::= "" | "|" &lt;extra&gt; 
+	 * </pre>
+	 * where <code>&lt;extra&gt;</code> is content that will only be displayed alongside
+	 * the field if its value is greater than 0 or there is a higher temporal unit with
+	 * a non-zero value (see example above).
+	 * 
+	 * @param event Event to get remaining time for
+	 * @param format Format as per {@link MessageFormat#format(String, Object...)}
+	 * @return Formatted string
+	 */
+	public String getRemainingTimeString(EventType event, String format) {
+		
+		// Get remaining time in seconds for event
+		long seconds = getRemainingTime(event).getSeconds();
+		
+		// Convert seconds to days, hours, minutes, and seconds
+		long remDays = seconds / (60 * 60 * 24);
+		long remHours = (seconds % (60 * 60 * 24)) / (60 * 60);
+		long remMinutes = (seconds % (60 * 60)) / (60);
+		long remSeconds = seconds % 60;
+		
+		// Regex is (unescaped): \{UNIT(?:\|([^\}]+))?\}
+		// \{		matches opening curly brace
+		// UNIT		the temporal unit (days, hours, minutes, or seconds)
+		// (?:\ 	new uncaptured group; can be used to make optional without capturing
+		//     |		matches pipe character
+		// 	   ([^\}]+) capturing group of 1+ non-closing curly brace characters
+		// )?		closes the uncaptured group and makes it optional
+		// \}		closing curly brace
+		return format.replaceAll("\\{days(?:\\|([^\\}]+))?\\}", seconds > 24 * 60 * 60 ? remDays + "$1" : "")
+				     .replaceAll("\\{hours(?:\\|([^\\}]+))?\\}", seconds > 60 * 60 ? remHours + "$1" : "")
+				     .replaceAll("\\{minutes(?:\\|([^\\}]+))?\\}", seconds > 60 ? remMinutes + "$1" : "")
+				     .replaceAll("\\{seconds(?:\\|([^\\}]+))?\\}", remSeconds + "$1");
 		
 	}
 	
